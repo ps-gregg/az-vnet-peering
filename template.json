@@ -1,0 +1,478 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vNet1Name": {
+            "type": "string",
+            "defaultValue": "VNET-SOUTHINDIA",
+            "metadata": {
+                "description": "Resource Name for vNet 1"
+            }
+        },
+        "vNet1Location": {
+            "type": "string",
+            "defaultValue": "SOUTHINDIA",
+            "metadata": {
+                "description": "Location for vNet 1"
+            }
+        },
+        "vNet1AddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.0.0/21",
+            "metadata": {
+                "description": "IP Range for vNet 1"
+            }
+        },
+        "vNet1Subnet1Name": {
+            "type": "string",
+            "defaultValue": "FW-MGMT-SOUTHINDIA",
+            "metadata": {
+                "description": "Firewall Management Subnet-Name in vNet 1"
+            }
+        },
+        "vNet1Subnet1AddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.0.0/27",
+            "metadata": {
+                "description": "Firewall Management IP Range in vNet 1"
+            }
+        },
+        "vNet1Subnet2Name": {
+            "type": "string",
+            "defaultValue": "FW-TRUST-SOUTHINDIA",
+            "metadata": {
+                "description": "Trusted Firewall Subnet-Name in vNet 1"
+            }
+        },
+        "vNet1Subnet2AddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.0.32/27",
+            "metadata": {
+                "description": "Trusted Firewall IP Range in vNet 1"
+            }
+        },
+        "vNet1Subnet3Name": {
+            "type": "string",
+            "defaultValue": "FW-UNTRUST-SOUTHINDIA",
+            "metadata": {
+                "description": "UnTrusted Firewall Management Subnet-Name in vNet 1"
+            }
+        },
+        "vNet1Subnet3AddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.0.128/25",
+            "metadata": {
+                "description": "UnTrusted Firewall Management IP Range in vNet 1"
+            }
+        },
+        "vNet1Subnet4Name": {
+            "type": "string",
+            "defaultValue": "SRVRS-SOUTHINDIA",
+            "metadata": {
+                "description": "Server Subnet-Name in vNet 1"
+            }
+        },
+        "vNet1Subnet4AddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.2.0/23",
+            "metadata": {
+                "description": "Server IP Range in vNet 1"
+            }
+        },
+        "vNet2Name": {
+            "type": "string",
+            "defaultValue": "TRANSIT-VNET-EAST",
+            "metadata": {
+                "description": "Resource Name for vNet 2"
+            }
+        },
+        "vNet2Location": {
+            "type": "string",
+            "defaultValue": "EASTUS",
+            "metadata": {
+                "description": "Location for vNet 2"
+            }
+        },
+        "vNet2AddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.124.0/22",
+            "metadata": {
+                "description": "IP Range for vNet 2"
+            }
+        },
+        "vNet2GateWaySubnetAddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.129.124.0/27",
+            "metadata": {
+                "description": "Gateway Subnet IP Range in vNet 2"
+            }
+        }
+    },
+    "variables": {
+        "vNet1tovNet2PeeringName": "[concat(parameters('vNet1Location'), '-', parameters('vNet2Location'), '-peer')]",
+        "vNet2tovNet1PeeringName": "[concat(parameters('vNet2Location'), '-', parameters('vNet1Location'), '-peer')]",
+        "vNet2VPNTampaDCLocalGatewayName": "[concat(parameters('vNet2Name'), '-to-VPNTampaDC01-lgw')]",
+        "vNet2VPNTampaDCConnectionName": "[concat(parameters('vNet2Name'), '-to-VPNTampaDC01-cn')]",
+        "vNet2VPNChicagoDCLocalGatewayName": "[concat(parameters('vNet2Name'), '-to-VPNChicagoDC01-lgw')]",
+        "vNet2VPNChicagoDCConnectionName": "[concat(parameters('vNet2Name'), '-to-VPNChicagoDC01-cn')]",
+        "vNet2PublicIP": "[concat(parameters('vNet2Name'), '-pip')]",
+        "vNet2Gateway": "[concat(parameters('vNet2Name'), '-vgw')]",
+        "resourceTags": {
+            "Environment": "[resourceGroup().tags.Environment]",
+            "LineOfBusiness": "[resourceGroup().tags.LineOfBusiness]",
+            "Portfolio": "[resourceGroup().tags.Portfolio]",
+            "Application": "[resourceGroup().tags.Application]",
+            "FundingProject": "[resourceGroup().tags.FundingProject]",
+            "Concept": "[resourceGroup().tags.Concept]"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-05-01",
+            "name": "[parameters('vNet1Name')]",
+            "location": "[parameters('vNet1Location')]",
+            "tags": "[variables('resourceTags')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vNet1AddressPrefix')]"
+                    ]
+                },
+                "dhcpOptions": {
+                    "dnsServers": [
+                        "10.xxx.xxx.xxx",
+                        "10.xxx.xxx.xxx"
+                    ]
+                },
+                "enableDdosProtection": false,
+                "enableVmProtection": false
+            },
+            "resources": [
+                {
+                    "type": "subnets",
+                    "apiVersion": "2020-05-01",
+                    "location": "[parameters('vNet1Location')]",
+                    "name": "[parameters('vNet1Subnet1Name')]",
+                    "dependsOn": [
+                        "[parameters('vNet1Name')]"
+                    ],
+                    "properties": {
+                        "addressPrefix": "[parameters('vNet1Subnet1AddressPrefix')]",
+                        "delegations": [],
+                        "privateEndpointNetworkPolicies": "Enabled",
+                        "privateLinkServiceNetworkPolicies": "Enabled"
+                    }
+                },
+                {
+                    "type": "subnets",
+                    "apiVersion": "2020-05-01",
+                    "location": "[parameters('vNet1Location')]",
+                    "name": "[parameters('vNet1Subnet2Name')]",
+                    "dependsOn": [
+                        "[parameters('vNet1Name')]",
+                        "[parameters('vNet1Subnet1Name')]"
+                    ],
+                    "properties": {
+                        "addressPrefix": "[parameters('vNet1Subnet2AddressPrefix')]",
+                        "delegations": [],
+                        "privateEndpointNetworkPolicies": "Enabled",
+                        "privateLinkServiceNetworkPolicies": "Enabled"
+                    }
+                },
+                {
+                    "type": "subnets",
+                    "apiVersion": "2020-05-01",
+                    "location": "[parameters('vNet1Location')]",
+                    "name": "[parameters('vNet1Subnet3Name')]",
+                    "dependsOn": [
+                        "[parameters('vNet1Name')]",
+                        "[parameters('vNet1Subnet1Name')]",
+                        "[parameters('vNet1Subnet2Name')]"
+                    ],
+                    "properties": {
+                        "addressPrefix": "[parameters('vNet1Subnet3AddressPrefix')]",
+                        "delegations": [],
+                        "privateEndpointNetworkPolicies": "Enabled",
+                        "privateLinkServiceNetworkPolicies": "Enabled"
+                    }
+                },
+                {
+                    "type": "subnets",
+                    "apiVersion": "2020-05-01",
+                    "location": "[parameters('vNet1Location')]",
+                    "name": "[parameters('vNet1Subnet4Name')]",
+                    "dependsOn": [
+                        "[parameters('vNet1Name')]",
+                        "[parameters('vNet1Subnet1Name')]",
+                        "[parameters('vNet1Subnet2Name')]",
+                        "[parameters('vNet1Subnet3Name')]"
+                    ],
+                    "properties": {
+                        "addressPrefix": "[parameters('vNet1Subnet4AddressPrefix')]",
+                        "delegations": [],
+                        "privateEndpointNetworkPolicies": "Enabled",
+                        "privateLinkServiceNetworkPolicies": "Enabled"
+                    }
+                },
+                {
+                    "apiVersion": "2020-05-01",
+                    "type": "virtualNetworkPeerings",
+                    "name": "[variables('vNet1tovNet2PeeringName')]",
+                    "location": "[parameters('vNet1Location')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNet1Name'))]",
+                        "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNet2Name'))]",
+                        "[resourceId('Microsoft.Network/virtualNetworkGateways/', variables('vNet2Gateway'))]"
+                    ],
+                    "comments": "This is the peering from vNet 1 to vNet 2",
+                    "properties": {
+                        "allowVirtualNetworkAccess": true,
+                        "allowForwardedTraffic": true,
+                        "allowGatewayTransit": false,
+                        "useRemoteGateways": true,
+                        "remoteVirtualNetwork": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vNet2Name'))]"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2020-05-01",
+            "name": "[parameters('vNet2Name')]",
+            "location": "[parameters('vNet2Location')]",
+            "tags": "[variables('resourceTags')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('vNet1Name'))]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[parameters('vNet2AddressPrefix')]"
+                    ]
+                },
+                "dhcpOptions": {
+                    "dnsServers": [
+                        "10.xxx.xxx.xxx",
+                        "10.xxx.xxx.xxx"
+                    ]
+                },
+                "enableDdosProtection": false,
+                "enableVmProtection": false
+            },
+            "resources": [
+                {
+                    "type": "subnets",
+                    "apiVersion": "2020-05-01",
+                    "location": "[parameters('vNet2Location')]",
+                    "name": "GatewaySubnet",
+                    "dependsOn": [
+                        "[parameters('vNet2Name')]"
+                    ],
+                    "properties": {
+                        "addressPrefix": "[parameters('vNet2GateWaySubnetAddressPrefix')]",
+                        "delegations": [],
+                        "privateEndpointNetworkPolicies": "Enabled",
+                        "privateLinkServiceNetworkPolicies": "Enabled"
+                    }
+                },
+                {
+                    "apiVersion": "2020-05-01",
+                    "type": "virtualNetworkPeerings",
+                    "name": "[variables('vNet2tovNet1PeeringName')]",
+                    "location": "[parameters('vNet2Location')]",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNet2Name'))]",
+                        "[resourceId('Microsoft.Network/virtualNetworks/', parameters('vNet1Name'))]"
+                    ],
+                    "comments": "This is the peering from vNet 2 to vNet 1",
+                    "properties": {
+                        "allowVirtualNetworkAccess": true,
+                        "allowForwardedTraffic": false,
+                        "allowGatewayTransit": true,
+                        "useRemoteGateways": false,
+                        "remoteVirtualNetwork": {
+                            "id": "[resourceId('Microsoft.Network/virtualNetworks',parameters('vNet1Name'))]"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Network/localNetworkGateways",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vNet2VPNTampaDCLocalGatewayName')]",
+            "location": "eastus",
+            "tags": "[variables('resourceTags')]",
+            "properties": {
+                "localNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "10.xxx.xxx.xxx/18",
+                        "10.xxx.xxx.xxx/23",
+                        "10.xxx.xxx.xxx/16"
+                    ]
+                },
+                "gatewayIpAddress": "xxx.xxx.xxx.xxx"
+            }
+        },
+        {
+            "type": "Microsoft.Network/localNetworkGateways",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vNet2VPNChicagoDCLocalGatewayName')]",
+            "location": "eastus",
+            "tags": "[variables('resourceTags')]",
+            "properties": {
+                "localNetworkAddressSpace": {
+                    "addressPrefixes": [
+                        "10.xxx.xxx.xxx/18",
+                        "10.xxx.xxx.xxx/23",
+                        "10.xxx.xxx.xxx/16"
+                    ]
+                },
+                "gatewayIpAddress": "xxx.xxx.xxx.xxx"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vNet2PublicIP')]",
+            "location": "eastus",
+            "tags": "[variables('resourceTags')]",
+            "sku": {
+                "name": "Basic"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4,
+                "ipTags": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/connections",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vNet2VPNChicagoDCConnectionName')]",
+            "location": "eastus",
+            "tags": "[variables('resourceTags')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworkGateways', variables('vNet2Gateway'))]",
+                "[resourceId('Microsoft.Network/localNetworkGateways', variables('vNet2VPNChicagoDCLocalGatewayName'))]"
+            ],
+            "properties": {
+                "virtualNetworkGateway1": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworkGateways', variables('vNet2Gateway'))]"
+                },
+                "localNetworkGateway2": {
+                    "id": "[resourceId('Microsoft.Network/localNetworkGateways', variables('vNet2VPNChicagoDCLocalGatewayName'))]"
+                },
+                "connectionType": "IPsec",
+                "connectionProtocol": "IKEv2",
+                "routingWeight": 0,
+                "enableBgp": false,
+                "useLocalAzureIpAddress": false,
+                "usePolicyBasedTrafficSelectors": false,
+                "ipsecPolicies": [
+                    {
+                        "saLifeTimeSeconds": 27000,
+                        "saDataSizeKilobytes": 102400000,
+                        "ipsecEncryption": "AES256",
+                        "ipsecIntegrity": "SHA256",
+                        "ikeEncryption": "AES256",
+                        "ikeIntegrity": "SHA256",
+                        "dhGroup": "DHGroup14",
+                        "pfsGroup": "None"
+                    }
+                ],
+                "trafficSelectorPolicies": [],
+                "expressRouteGatewayBypass": false,
+                "dpdTimeoutSeconds": 45
+            }
+        },
+        {
+            "type": "Microsoft.Network/connections",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vNet2VPNTampaDCConnectionName')]",
+            "location": "eastus",
+            "tags": "[variables('resourceTags')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworkGateways', variables('vNet2Gateway'))]",
+                "[resourceId('Microsoft.Network/localNetworkGateways', variables('vNet2VPNTampaDCLocalGatewayName'))]"
+            ],
+            "properties": {
+                "virtualNetworkGateway1": {
+                    "id": "[resourceId('Microsoft.Network/virtualNetworkGateways', variables('vNet2Gateway'))]"
+                },
+                "localNetworkGateway2": {
+                    "id": "[resourceId('Microsoft.Network/localNetworkGateways', variables('vNet2VPNTampaDCLocalGatewayName'))]"
+                },
+                "connectionType": "IPsec",
+                "connectionProtocol": "IKEv2",
+                "routingWeight": 0,
+                "enableBgp": false,
+                "useLocalAzureIpAddress": false,
+                "usePolicyBasedTrafficSelectors": false,
+                "ipsecPolicies": [
+                    {
+                        "saLifeTimeSeconds": 27000,
+                        "saDataSizeKilobytes": 102400000,
+                        "ipsecEncryption": "AES256",
+                        "ipsecIntegrity": "SHA256",
+                        "ikeEncryption": "AES256",
+                        "ikeIntegrity": "SHA256",
+                        "dhGroup": "DHGroup14",
+                        "pfsGroup": "None"
+                    }
+                ],
+                "trafficSelectorPolicies": [],
+                "expressRouteGatewayBypass": false,
+                "dpdTimeoutSeconds": 45
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworkGateways",
+            "apiVersion": "2020-05-01",
+            "name": "[variables('vNet2Gateway')]",
+            "location": "eastus",
+            "tags": "[variables('resourceTags')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('vNet2PublicIP'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vNet2Name'), 'GatewaySubnet')]"
+            ],
+            "properties": {
+                "enablePrivateIpAddress": false,
+                "ipConfigurations": [
+                    {
+                        "name": "[variables('vNet2Gateway')]",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('vNet2PublicIP'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vNet2Name'), 'GatewaySubnet')]"
+                            }
+                        }
+                    }
+                ],
+                "sku": {
+                    "name": "VpnGw2",
+                    "tier": "VpnGw2"
+                },
+                "gatewayType": "Vpn",
+                "vpnType": "RouteBased",
+                "enableBgp": false,
+                "activeActive": false,
+                "bgpSettings": {
+                    "asn": 65515,
+                    "bgpPeeringAddress": "xxx.xxx.xxx.xxx",
+                    "peerWeight": 0
+                },
+                "vpnGatewayGeneration": "Generation1"
+            }
+        }
+
+
+    ]
+}
